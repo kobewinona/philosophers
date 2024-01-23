@@ -1,5 +1,4 @@
-.PHONY: all clean fclean re
-NAME			= philosophers
+NAME			= philo
 
 CC				= gcc
 #CFLAGS			= -g -Wall -Wextra -Werror -MMD
@@ -23,7 +22,7 @@ all: $(NAME)
 	
 $(OBJS_DIR)/%.o: %.c
 	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) -I$(INCLUDES) -c $< -o $@
+	$(CC) $(CFLAGS) -pthread -I$(INCLUDES) -c $< -o $@
 
 -include $(DEPS)
 
