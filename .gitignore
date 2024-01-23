@@ -1,0 +1,15 @@
+# IDE
+.vscode
+.idea
+*.dSYM
+
+# program
+a.out
+minishell
+
+#objects
+obj
+
+# rest
+.DS_store
+*.txt
