@@ -19,7 +19,7 @@ $(NAME): $(OBJS)
 	$(CC) $(CFLAGS) $(OBJS) -o $(NAME) -I$(INCLUDES)
 
 all: $(NAME)
-	
+
 $(OBJS_DIR)/%.o: %.c
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -pthread -I$(INCLUDES) -c $< -o $@

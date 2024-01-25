@@ -10,18 +10,40 @@
 /*                                                                            */
 /* ************************************************************************** */
 
-#include "../includes/philo.h"
+#include "philo.h"
 
-int	handle_error(char *err_ctx, char *err_msg)
+static void	cleanup(t_philo **philosophers, t_fork **forks,
+		pthread_t **threads, int number_of_philosophers)
 {
-	if (!err_ctx)
-		printf("%s: %s", DEFAULT_ERR_CTX, err_msg);
-	else
-		printf("%s: %s", err_ctx, err_msg);
+	int	i;
+
+	print_timestamp(philosophers[0]->id, "cleaning up this mess\n");
+	if ((*philosophers))
+	{
+		pthread_mutex_destroy(&(*philosophers)[0].shared_status->mutex);
+		free((*philosophers));
+	}
+	if (forks && (*forks))
+	{
+		i = 0;
+		while (i < number_of_philosophers)
+		{
+			pthread_mutex_destroy(&(*forks)[i].mutex);
+			i++;
+		}
+		free((*forks));
+	}
+	if (threads && (*threads))
+		free((*threads));
+}
+
+static int	exit_with_error_message(char *err_msg)
+{
+	printf("%s: %s", DEFAULT_ERR_CTX, err_msg);
 	exit(EXIT_FAILURE);
 }
 
-int	is_argv_valid(int argc, char **argv)
+static int	is_argv_valid(int argc, char **argv)
 {
 	while (argc--)
 	{
@@ -31,37 +53,23 @@ int	is_argv_valid(int argc, char **argv)
 	return (true);
 }
 
-int	is_philosopher_dead(struct timeval start_time, long time_to_die)
-{
-	struct timeval	current_time;
-	long			elapsed_time;
-
-	gettimeofday(&current_time, NULL);
-	elapsed_time = (current_time.tv_sec - start_time.tv_sec) * MS_PER_SEC;
-	elapsed_time += (current_time.tv_usec - start_time.tv_usec) / US_PER_MS;
-	if (elapsed_time >= time_to_die)
-	{
-		printf("Philosopher X died\n");
-		return (true);
-	}
-	return (false);
-}
-
 int	main(int argc, char **argv)
 {
-	struct timeval	start_time;
-	long			time_to_die;
+	int			number_of_philosophers;
+	pthread_t	*threads;
+	t_philo		*philosophers;
+	t_fork		*forks;
 
 	if (argc < 5)
-		handle_error(NULL, NOT_ENOUGH_ARGS_ERR);
+		exit_with_error_message(NOT_ENOUGH_ARGS_ERR);
 	if (is_argv_valid((argc - 1), (argv + 1)) == false)
-		handle_error(NULL, INVALID_ARGS_ERR);
-	gettimeofday(&start_time, NULL);
-	time_to_die = ft_atoi(argv[2]);
-	while (1)
+		exit_with_error_message(INVALID_ARGS_ERR);
+	number_of_philosophers = ft_atoi(argv[1]);
+	if (init_sim(&philosophers, &forks, &threads, argv) == ERROR)
 	{
-		if (is_philosopher_dead(start_time, time_to_die))
-			return (EXIT_SUCCESS);
+		cleanup(&philosophers, &forks, &threads, number_of_philosophers);
+		exit_with_error_message(UNKNOWN_ERR);
 	}
+	cleanup(&philosophers, &forks, &threads, number_of_philosophers);
 	return (EXIT_SUCCESS);
 }
