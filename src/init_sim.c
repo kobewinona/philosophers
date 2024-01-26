@@ -12,122 +12,78 @@
 
 #include "philo.h"
 
-static int	create_forks(t_fork **forks, int number_of_philosophers)
+static int	create_forks(t_sim **sim)
 {
 	int		i;
 
-	*forks = (t_fork *)malloc((number_of_philosophers + 1) * sizeof(t_fork));
-	if (!(*forks))
+	(*sim)->forks = (t_fork *)malloc((
+				(*sim)->params.number_of_philosophers) * sizeof(t_fork));
+	if (!(*sim)->forks)
 		return (ERROR);
 	i = 0;
-	while (i < number_of_philosophers)
+	while (i < (*sim)->params.number_of_philosophers)
 	{
-		(*forks)[i].is_free = true;
-		pthread_mutex_init(&(*forks)[i].mutex, NULL);
-		i++;
-	}
-	return (SUCCESS);
-}
-
-static int	create_philosophers(t_philo **philosophers,
-	t_fork **forks, t_status **status, char **argv)
-{
-	int		number_of_philosophers;
-	int		i;
-
-	number_of_philosophers = ft_atoi(argv[1]);
-	*philosophers = (t_philo *)malloc(number_of_philosophers * sizeof(t_philo));
-	if (!(*philosophers))
-		return (ERROR);
-	memset((*philosophers), 0, (number_of_philosophers * sizeof(t_philo)));
-	i = 0;
-	while (i < number_of_philosophers)
-	{
-		(*philosophers)[i].id = i;
-		(*philosophers)[i].shared_status = (*status);
-		gettimeofday(&(*philosophers)[i].last_meal, NULL);
-		(*philosophers)[i].left_fork = &((*forks)[i]);
-		(*philosophers)[i].right_fork = &(
-				(*forks)[((i + 1) % number_of_philosophers)]);
-		(*philosophers)[i].time_to_die = ft_atoi(argv[2]);
-		(*philosophers)[i].time_to_eat = ft_atoi(argv[3]);
-		(*philosophers)[i].time_to_sleep = ft_atoi(argv[4]);
-		if (argv[5])
-			(*philosophers)[i].number_of_meals = ft_atoi(argv[5]);
-		i++;
-	}
-	return (SUCCESS);
-}
-
-static int	create_threads(pthread_t **threads,
-	t_philo *context, void *routine, int count)
-{
-	int			i;
-	int			j;
-
-	*threads = (pthread_t *)malloc(count * sizeof(pthread_t));
-	if (!(*threads))
-		return (ERROR);
-	i = 0;
-	while (i < count)
-	{
-		if (pthread_create(&(*threads)[i], NULL, routine, &context[i]))
-		{
-			j = 0;
-			while (j < i)
-				pthread_cancel((*threads)[j++]);
-			free((*threads));
+		if (pthread_mutex_init(&(*sim)->forks[i].mutex, NULL) != SUCCESS)
 			return (ERROR);
-		}
+		(*sim)->forks[i].is_free = true;
 		i++;
 	}
 	return (SUCCESS);
 }
 
-static void	join_threads(pthread_t **threads, int count, t_status *status)
+static int	create_philosophers(t_sim **sim)
 {
-	int	i;
+	int		i;
 
+	(*sim)->philosophers = (t_philo *)malloc(
+			(*sim)->params.number_of_philosophers * sizeof(t_philo));
+	if (!(*sim)->philosophers)
+		return (ERROR);
+	memset((*sim)->philosophers, 0,
+		((*sim)->params.number_of_philosophers * sizeof(t_philo)));
 	i = 0;
-	while (i < count)
+	while (i < (*sim)->params.number_of_philosophers)
 	{
-		pthread_mutex_lock(&status->mutex);
-		if (status->is_philosopher_dead)
-		{
-			pthread_mutex_unlock(&status->mutex);
-			break ;
-		}
-		pthread_mutex_unlock(&status->mutex);
-		pthread_join((*threads)[i], NULL);
+		(*sim)->philosophers[i].id = i;
+		(*sim)->philosophers[i].sim_params = (*sim)->params;
+		(*sim)->philosophers[i].sim_status = &(*sim)->status;
+		(*sim)->philosophers[i].sim_log = &(*sim)->log;
+		(*sim)->philosophers[i].number_of_meals_left
+			= (*sim)->params.number_of_meals;
+		(*sim)->philosophers[i].left_fork = &((*sim)->forks[i]);
+		(*sim)->philosophers[i].right_fork = &((*sim)->forks[(
+					(i + 1) % (*sim)->params.number_of_philosophers)]);
+		gettimeofday(&(*sim)->philosophers[i].last_meal, NULL);
 		i++;
 	}
+	return (SUCCESS);
 }
 
-int	init_sim(t_philo **philosophers, t_fork **forks,
-	pthread_t **threads, char **argv)
+static void	set_sim_params(char **argv, t_sim_params *params)
 {
-	t_status	*status;
-	int			number_of_philosophers;
+	memset(params, 0, sizeof(t_sim_params));
+	params->number_of_philosophers = ft_atoi(argv[1]);
+	params->time_to_die = ft_atoi(argv[2]);
+	params->time_to_eat = ft_atoi(argv[3]);
+	params->time_to_sleep = ft_atoi(argv[4]);
+	if (argv[5])
+		params->number_of_meals = ft_atoi(argv[5]);
+	else
+		params->number_of_meals = UNSPECIFIED;
+}
 
-	number_of_philosophers = ft_atoi(argv[1]);
-	*forks = NULL;
-	if (create_forks(forks, number_of_philosophers) == ERROR)
+int	init_sim(t_sim **sim, char **argv)
+{
+	set_sim_params(argv, &(*sim)->params);
+	memset(&(*sim)->status, 0, sizeof(t_sim_status));
+	if (pthread_mutex_init(&(*sim)->status.mutex, NULL) != SUCCESS)
 		return (ERROR);
-	status = (t_status *)malloc(sizeof(t_status));
-	if (!status)
+	(*sim)->status.should_stop = false;
+	if (pthread_mutex_init(&(*sim)->log.mutex, NULL) != SUCCESS)
 		return (ERROR);
-	pthread_mutex_init(&status->mutex, NULL);
-	status->is_philosopher_dead = false;
-	*philosophers = NULL;
-	if (create_philosophers(philosophers,
-			forks, &status, argv) == ERROR)
-	{
+	if (create_forks(sim) == ERROR)
 		return (ERROR);
-	}
-	*threads = NULL;
-	if (create_threads(threads, (*philosophers), philosopher_routine,
-			number_of_philosophers) == ERROR)
+	if (create_philosophers(sim) == ERROR)
 		return (ERROR);
-	join_threads(threads, number_of_philosophers, status);
 	return (SUCCESS);
 }

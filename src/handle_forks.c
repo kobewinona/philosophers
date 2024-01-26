@@ -20,50 +20,55 @@ void	release_forks(t_fork **right_fork, t_fork **left_fork)
 	(*left_fork)->is_free = true;
 }
 
-static int	try_take_right_fork(t_fork **right_fork, int philosopher_id)
+static int	try_take_right_fork(t_fork **right_fork, t_philo *philo)
 {
-	if ((*right_fork)->is_free)
+	pthread_mutex_lock(&((*right_fork)->mutex));
+	if ((*right_fork)->is_free && !philo->sim_status->should_stop)
 	{
-		pthread_mutex_lock(&((*right_fork)->mutex));
 		(*right_fork)->is_free = false;
-		print_timestamp(philosopher_id, RIGHT_FORK);
+		print_log(philo->sim_log, philo->id, "has taken a right fork\n");
+		return (SUCCESS);
 	}
 	else
+	{
+		pthread_mutex_unlock(&((*right_fork)->mutex));
 		return (FAILURE);
-	return (SUCCESS);
+	}
 }
 
-static int	try_take_left_fork(t_fork **left_fork, int philosopher_id)
+static int	try_take_left_fork(t_fork **left_fork, t_philo *philo)
 {
-	if ((*left_fork)->is_free)
+	pthread_mutex_lock(&((*left_fork)->mutex));
+	if ((*left_fork)->is_free && !philo->sim_status->should_stop)
 	{
-		pthread_mutex_lock(&((*left_fork)->mutex));
 		(*left_fork)->is_free = false;
-		print_timestamp(philosopher_id, LEFT_FORK);
+		print_log(philo->sim_log, philo->id, "has taken a left fork\n");
+		return (SUCCESS);
 	}
 	else
+	{
+		pthread_mutex_unlock(&((*left_fork)->mutex));
 		return (FAILURE);
-	return (SUCCESS);
+	}
 }
 
-int	try_take_forks(t_philo *philosopher)
+int	try_take_forks(t_philo *philo)
 {
-	if ((philosopher->id % 2) != 0)
+	print_log(philo->sim_log, philo->id, "is going to try to take forks\n");
+	if (philo->sim_status->should_stop)
+		return (FAILURE);
+	if ((philo->id % 2) != 0)
 	{
-		if (try_take_right_fork(&philosopher->right_fork,
-				philosopher->id) == FAILURE)
+		if (try_take_right_fork(&philo->right_fork, philo) == FAILURE)
 			return (FAILURE);
-		if (try_take_left_fork(&philosopher->left_fork,
-				philosopher->id) == FAILURE)
+		if (try_take_left_fork(&philo->left_fork, philo) == FAILURE)
 			return (FAILURE);
 	}
 	else
 	{
-		if (try_take_left_fork(&philosopher->left_fork,
-				philosopher->id) == FAILURE)
+		if (try_take_left_fork(&philo->left_fork, philo) == FAILURE)
 			return (FAILURE);
-		if (try_take_right_fork(&philosopher->right_fork,
-				philosopher->id) == FAILURE)
+		if (try_take_right_fork(&philo->right_fork, philo) == FAILURE)
 			return (FAILURE);
 	}
 	return (SUCCESS);

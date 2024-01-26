@@ -12,81 +12,98 @@
 
 #include "philo.h"
 
-static int	try_think(t_philo *philosopher)
+bool	should_philosopher_stop(t_sim_status *sim_status)
 {
+	bool	should_stop;
+
+	pthread_mutex_lock(&sim_status->mutex);
+	should_stop = sim_status->should_stop;
+	pthread_mutex_unlock(&sim_status->mutex);
+	return (should_stop);
+}
+
+static int	try_eat(t_philo *philo)
+{
+	if (philo->right_fork->is_free && philo->left_fork->is_free)
+	{
+		if (try_take_forks(philo) == FAILURE)
+		{
+			print_log(philo->sim_log, philo->id, "has failed to take both forks\n");
+			return (FAILURE);
+		}
+		else
+		{
+			print_log(philo->sim_log, philo->id, EAT);
+			usleep(philo->sim_params.time_to_eat * US_PER_MS);
+			gettimeofday(&philo->last_meal, NULL);
+			if (philo->number_of_meals_left != UNSPECIFIED)
+				philo->number_of_meals_left--;
+			if (should_philosopher_stop(philo->sim_status) == true)
+				return (FAILURE);
+		}
+		release_forks(&philo->right_fork, &philo->left_fork);
+		print_log(philo->sim_log, philo->id, "has put down forks he took\n");
+	}
+	else
+		return (FAILURE);
+	return (SUCCESS);
+}
+
+static int	try_think(t_philo *philo)
+{
+	int				time_to_die;
+	int				time_to_eat;
 	long			time_to_think;
 	const long		min_think_time = 50;
 	const double	fraction_of_life = 0.1;
 
-	time_to_think = (long)(philosopher->time_to_die * fraction_of_life);
+	time_to_die = philo->sim_params.time_to_die;
+	time_to_eat = philo->sim_params.time_to_eat;
+	time_to_think = (long)(time_to_die * fraction_of_life);
 	if (time_to_think <= min_think_time)
 		time_to_think = min_think_time;
-	if (time_to_think + philosopher->time_to_eat > philosopher->time_to_die)
-		time_to_think = philosopher->time_to_die - philosopher->time_to_eat;
+	if (time_to_think + time_to_die > time_to_eat)
+		time_to_think = time_to_die - time_to_eat;
 	if (time_to_think < 1)
 		return (FAILURE);
-	print_timestamp2(philosopher->id, "is going to think for", time_to_think);
-	fflush(stdout);
-	print_timestamp(philosopher->id, THINK);
+	print_log(philo->sim_log, philo->id, THINK);
 	usleep(time_to_think * US_PER_MS);
-	if (is_philosopher_dead(philosopher))
+	if (should_philosopher_stop(philo->sim_status) == true)
 		return (FAILURE);
 	return (SUCCESS);
 }
 
-static int	try_eat(t_philo *philosopher)
+static int	try_sleep(t_philo *philo)
 {
-	print_timestamp(philosopher->id, "is going to try to eat\n");
-	if (philosopher->right_fork->is_free && philosopher->left_fork->is_free)
-	{
-		print_timestamp(philosopher->id, "is trying to take forks\n");
-		if (try_take_forks(philosopher) == FAILURE)
-		{
-			print_timestamp(philosopher->id, "failed to take forks\n");
-			release_forks(&philosopher->right_fork, &philosopher->left_fork);
-			print_timestamp(philosopher->id, "released forks\n");
-			return (FAILURE);
-		}
-	}
-	else
-	{
-		print_timestamp(philosopher->id, "didn't find enough forks, poor guy(\n");
-		return (FAILURE);
-	}
-	print_timestamp(philosopher->id, EAT);
-	usleep(philosopher->time_to_eat * US_PER_MS);
-	release_forks(&philosopher->right_fork, &philosopher->left_fork);
-	if (is_philosopher_dead(philosopher))
-		return (FAILURE);
-	gettimeofday(&philosopher->last_meal, NULL);
-	return (SUCCESS);
-}
-
-static int	try_sleep(t_philo *philosopher)
-{
-	print_timestamp(philosopher->id, SLEEP);
-	usleep(philosopher->time_to_sleep * US_PER_MS);
-	if (is_philosopher_dead(philosopher))
+	print_log(philo->sim_log, philo->id, SLEEP);
+	usleep(philo->sim_params.time_to_sleep * US_PER_MS);
+	if (should_philosopher_stop(philo->sim_status) == true)
 		return (FAILURE);
 	return (SUCCESS);
 }
 
 void	*philosopher_routine(void *arg)
 {
-	t_philo	*philosopher;
+	t_philo	*philo;
+	bool	should_continue;
 
-	philosopher = (t_philo *)arg;
-	while (1)
+	philo = (t_philo *)arg;
+	should_continue = (philo->number_of_meals_left == UNSPECIFIED);
+	while (should_continue || philo->number_of_meals_left > 0)
 	{
-		if (try_eat(philosopher) == FAILURE)
+		if (should_philosopher_stop(philo->sim_status) == true)
+			return (NULL);
+		if (try_eat(philo) == FAILURE)
 		{
-			if (try_think(philosopher) == FAILURE)
-				return (handle_death(philosopher));
+			if (should_philosopher_stop(philo->sim_status) == true)
+				return (NULL);
+			if (try_think(philo) == FAILURE)
+				return (NULL);
 		}
-		else
-			philosopher->number_of_meals--;
-		if (try_sleep(philosopher) == FAILURE)
-			return (handle_death(philosopher));
+		if (should_philosopher_stop(philo->sim_status) == true)
+			return (NULL);
+		if (try_sleep(philo) == FAILURE)
+			return (NULL);
 	}
 	return (NULL);
 }

@@ -12,29 +12,27 @@
 
 #include "philo.h"
 
-static void	cleanup(t_philo **philosophers, t_fork **forks,
-		pthread_t **threads, int number_of_philosophers)
+static void	cleanup(t_sim **sim)
 {
 	int	i;
 
-	print_timestamp(philosophers[0]->id, "cleaning up this mess\n");
-	if ((*philosophers))
-	{
-		pthread_mutex_destroy(&(*philosophers)[0].shared_status->mutex);
-		free((*philosophers));
-	}
-	if (forks && (*forks))
+	pthread_mutex_destroy(&(*sim)->status.mutex);
+	pthread_mutex_destroy(&(*sim)->log.mutex);
+	if ((*sim)->forks)
 	{
 		i = 0;
-		while (i < number_of_philosophers)
+		while (i < (*sim)->params.number_of_philosophers)
 		{
-			pthread_mutex_destroy(&(*forks)[i].mutex);
+			pthread_mutex_destroy(&(*sim)->forks[i].mutex);
 			i++;
 		}
-		free((*forks));
+		free((*sim)->forks);
 	}
-	if (threads && (*threads))
-		free((*threads));
+	if ((*sim)->philosophers)
+		free((*sim)->philosophers);
+	if ((*sim)->threads)
+		free((*sim)->threads);
+	free((*sim));
 }
 
 static int	exit_with_error_message(char *err_msg)
@@ -55,21 +53,22 @@ static int	is_argv_valid(int argc, char **argv)
 
 int	main(int argc, char **argv)
 {
-	int			number_of_philosophers;
-	pthread_t	*threads;
-	t_philo		*philosophers;
-	t_fork		*forks;
+	t_sim	*sim;
 
 	if (argc < 5)
 		exit_with_error_message(NOT_ENOUGH_ARGS_ERR);
 	if (is_argv_valid((argc - 1), (argv + 1)) == false)
 		exit_with_error_message(INVALID_ARGS_ERR);
-	number_of_philosophers = ft_atoi(argv[1]);
-	if (init_sim(&philosophers, &forks, &threads, argv) == ERROR)
+	sim = (t_sim *)malloc(sizeof(t_sim));
+	if (!sim)
+		exit_with_error_message(UNKNOWN_ERR);
+	memset(sim, 0, sizeof(t_sim));
+	if (init_sim(&sim, argv) == ERROR)
 	{
-		cleanup(&philosophers, &forks, &threads, number_of_philosophers);
+		cleanup(&sim);
 		exit_with_error_message(UNKNOWN_ERR);
 	}
-	cleanup(&philosophers, &forks, &threads, number_of_philosophers);
+	run_sim(&sim);
+	cleanup(&sim);
 	return (EXIT_SUCCESS);
 }

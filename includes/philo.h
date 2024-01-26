@@ -22,9 +22,12 @@
 # include <sys/time.h>
 
 // magic numbers
-# define ERROR 0
+# define UNSPECIFIED -2
+# define ERROR -1
+# define SUCCESS 0
 # define FAILURE 1
-# define SUCCESS 2
+
+# define MAX_MS_TO_ANNOUNCE_DEATH 8
 
 # define MS_PER_SEC 1000
 # define US_PER_SEC 1000000
@@ -43,48 +46,69 @@
 # define DIE "died\n"
 
 # define FORK "has taken a fork\n"
-# define LEFT_FORK "has taken left fork\n"
-# define RIGHT_FORK "has taken right fork\n"
+
+// structures
+
+typedef struct s_sim_params
+{
+	int		number_of_philosophers;
+	int		number_of_meals;
+	int		time_to_die;
+	int		time_to_eat;
+	int		time_to_sleep;
+}	t_sim_params;
+
+typedef struct s_sim_status
+{
+	pthread_mutex_t	mutex;
+	bool			should_stop;
+}	t_sim_status;
+
+typedef struct s_sim_log
+{
+	pthread_mutex_t	mutex;
+}	t_sim_log;
 
 typedef struct s_fork
 {
+	pthread_mutex_t	mutex;
 	bool			is_free;
-	pthread_mutex_t	mutex;
 }	t_fork;
-
-typedef struct s_status
-{
-	pthread_mutex_t	mutex;
-	int				is_philosopher_dead;
-}	t_status;
 
 typedef struct s_philo
 {
 	int				id;
-	t_status		*shared_status;
-	struct timeval	last_meal;
+	t_sim_params	sim_params;
+	t_sim_status	*sim_status;
+	t_sim_log		*sim_log;
+	int				number_of_meals_left;
 	t_fork			*left_fork;
 	t_fork			*right_fork;
-	long			time_to_die;
-	long			time_to_eat;
-	long			time_to_sleep;
-	int				number_of_meals;
+	struct timeval	last_meal;
 }	t_philo;
+
+typedef struct s_sim
+{
+	t_sim_params	params;
+	t_sim_status	status;
+	t_sim_log		log;
+	t_fork			*forks;
+	t_philo			*philosophers;
+	pthread_t		*threads;
+}	t_sim;
 
 // functions
 // /src
-int		init_sim(t_philo **philosophers, t_fork **forks,
-			pthread_t **threads, char **argv);
-void	*philosopher_routine(void *arg);
+int		init_sim(t_sim **sim, char **argv);
+void	run_sim(t_sim **sim);
 
-int		try_take_forks(t_philo *philosopher);
+int		try_take_forks(t_philo *philo);
 void	release_forks(t_fork **right_fork, t_fork **left_fork);
 
-int		is_philosopher_dead(t_philo *philosopher);
-void	*handle_death(t_philo *philosopher);
+void	*philosopher_routine(void *arg);
+bool	should_philosopher_stop(t_sim_status *sim_status);
 
-void	print_timestamp(int id, char *message);
-void	print_timestamp2(int id, char *message, long context_time);
+void	print_log(t_sim_log *log, int id, char *message);
 
 // /utils
 int		ft_atoi(const char *str);

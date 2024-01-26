@@ -10,6 +10,12 @@ philo
 #objects
 obj
 
+#scripts
+*.sh
+
+#logs
+logs
+
 # rest
 .DS_store
 *.txt
