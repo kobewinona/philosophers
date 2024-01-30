@@ -18,7 +18,6 @@ static void	cleanup(t_sim **sim)
 
 	pthread_mutex_destroy(&(*sim)->status.mutex);
 	pthread_mutex_destroy(&(*sim)->log.mutex);
-	pthread_mutex_destroy(&(*sim)->philos->meal->mutex);
 	if ((*sim)->forks)
 	{
 		i = 0;
@@ -30,7 +29,16 @@ static void	cleanup(t_sim **sim)
 		free((*sim)->forks);
 	}
 	if ((*sim)->philos)
+	{
+		i = 0;
+		while (i < (*sim)->params.number_of_philos)
+		{
+			pthread_mutex_destroy(&(*sim)->philos[i].meal->mutex);
+			free((*sim)->philos[i].meal);
+			i++;
+		}
 		free((*sim)->philos);
+	}
 	if ((*sim)->threads)
 		free((*sim)->threads);
 	free((*sim));
@@ -38,7 +46,7 @@ static void	cleanup(t_sim **sim)
 
 static int	exit_with_error_message(char *err_msg)
 {
-	printf("%s: %s", DEFAULT_ERR_CTX, err_msg);
+	printf("Error: %s", err_msg);
 	exit(EXIT_FAILURE);
 }
 

@@ -34,7 +34,6 @@
 # define US_PER_MS 1000
 
 // error messages
-# define DEFAULT_ERR_CTX "Error"
 # define NOT_ENOUGH_ARGS_ERR "Not enough arguments provided\n"
 # define INVALID_ARGS_ERR "Provided arguments are not valid\n"
 # define UNKNOWN_ERR "Unknown error occurred\n"
