@@ -51,7 +51,7 @@
 
 typedef struct s_sim_params
 {
-	int		number_of_philosophers;
+	int		number_of_philos;
 	int		number_of_meals;
 	int		time_to_die;
 	int		time_to_eat;
@@ -75,16 +75,23 @@ typedef struct s_fork
 	bool			is_free;
 }	t_fork;
 
+typedef struct s_meal
+{
+	pthread_mutex_t	mutex;
+	bool			is_eating;
+	int				number_of_meals_left;
+	struct timeval	last_meal;
+}	t_meal;
+
 typedef struct s_philo
 {
 	int				id;
 	t_sim_params	sim_params;
 	t_sim_status	*sim_status;
 	t_sim_log		*sim_log;
-	int				number_of_meals_left;
 	t_fork			*left_fork;
 	t_fork			*right_fork;
-	struct timeval	last_meal;
+	t_meal			*meal;
 }	t_philo;
 
 typedef struct s_sim
@@ -93,7 +100,7 @@ typedef struct s_sim
 	t_sim_status	status;
 	t_sim_log		log;
 	t_fork			*forks;
-	t_philo			*philosophers;
+	t_philo			*philos;
 	pthread_t		*threads;
 }	t_sim;
 

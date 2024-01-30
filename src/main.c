@@ -18,18 +18,19 @@ static void	cleanup(t_sim **sim)
 
 	pthread_mutex_destroy(&(*sim)->status.mutex);
 	pthread_mutex_destroy(&(*sim)->log.mutex);
+	pthread_mutex_destroy(&(*sim)->philos->meal->mutex);
 	if ((*sim)->forks)
 	{
 		i = 0;
-		while (i < (*sim)->params.number_of_philosophers)
+		while (i < (*sim)->params.number_of_philos)
 		{
 			pthread_mutex_destroy(&(*sim)->forks[i].mutex);
 			i++;
 		}
 		free((*sim)->forks);
 	}
-	if ((*sim)->philosophers)
-		free((*sim)->philosophers);
+	if ((*sim)->philos)
+		free((*sim)->philos);
 	if ((*sim)->threads)
 		free((*sim)->threads);
 	free((*sim));
