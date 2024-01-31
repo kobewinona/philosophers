@@ -28,6 +28,7 @@
 # define FAILURE 1
 
 # define MAX_MS_TO_ANNOUNCE_DEATH 8
+# define FREQ_RATIO_TO_UPDATE_STATUS 20
 
 # define MS_PER_SEC 1000
 # define US_PER_SEC 1000000
@@ -57,21 +58,32 @@ typedef struct s_sim_params
 	int		time_to_sleep;
 }	t_sim_params;
 
+typedef enum e_stop_event
+{
+	NO_STOP_EVENT,
+	PHILO_DIED,
+	NO_MEALS_LEFT,
+}	t_stop_event;
+
 typedef struct s_sim_status
 {
 	pthread_mutex_t	mutex;
 	bool			should_stop;
+	t_stop_event	stop_event;
+	int				philo_id;
 }	t_sim_status;
 
 typedef struct s_sim_log
 {
 	pthread_mutex_t	mutex;
+	struct timeval	start_time;
 }	t_sim_log;
 
 typedef struct s_fork
 {
 	pthread_mutex_t	mutex;
 	bool			is_free;
+	bool			is_contested;
 }	t_fork;
 
 typedef struct s_meal
@@ -90,6 +102,7 @@ typedef struct s_philo
 	t_sim_log		*sim_log;
 	t_fork			*left_fork;
 	t_fork			*right_fork;
+	bool			is_thinking;
 	t_meal			*meal;
 }	t_philo;
 
@@ -108,13 +121,17 @@ typedef struct s_sim
 int		init_sim(t_sim **sim, char **argv);
 void	run_sim(t_sim **sim);
 
+void	*philosopher_routine(void *arg);
+bool	is_philosopher_dead(t_philo *philo);
+bool	has_philo_ate_all_the_meals(t_philo *philo);
+bool	should_philosopher_stop(t_sim_status *sim_status);
+
 int		try_take_forks(t_philo *philo);
 void	release_forks(t_fork **right_fork, t_fork **left_fork);
 
-void	*philosopher_routine(void *arg);
-bool	should_philosopher_stop(t_sim_status *sim_status);
-
 void	print_log(t_sim_log *log, int id, char *message);
+
+int		handle_cleanup(t_sim **sim);
 
 // /utils
 int		ft_atoi(const char *str);

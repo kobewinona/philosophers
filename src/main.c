@@ -12,38 +12,6 @@
 
 #include "philo.h"
 
-static void	cleanup(t_sim **sim)
-{
-	int	i;
-
-	pthread_mutex_destroy(&(*sim)->status.mutex);
-	pthread_mutex_destroy(&(*sim)->log.mutex);
-	if ((*sim)->forks)
-	{
-		i = 0;
-		while (i < (*sim)->params.number_of_philos)
-		{
-			pthread_mutex_destroy(&(*sim)->forks[i].mutex);
-			i++;
-		}
-		free((*sim)->forks);
-	}
-	if ((*sim)->philos)
-	{
-		i = 0;
-		while (i < (*sim)->params.number_of_philos)
-		{
-			pthread_mutex_destroy(&(*sim)->philos[i].meal->mutex);
-			free((*sim)->philos[i].meal);
-			i++;
-		}
-		free((*sim)->philos);
-	}
-	if ((*sim)->threads)
-		free((*sim)->threads);
-	free((*sim));
-}
-
 static int	exit_with_error_message(char *err_msg)
 {
 	printf("Error: %s", err_msg);
@@ -74,10 +42,11 @@ int	main(int argc, char **argv)
 	memset(sim, 0, sizeof(t_sim));
 	if (init_sim(&sim, argv) == ERROR)
 	{
-		cleanup(&sim);
+		handle_cleanup(&sim);
 		exit_with_error_message(UNKNOWN_ERR);
 	}
 	run_sim(&sim);
-	cleanup(&sim);
+	if (handle_cleanup(&sim) == ERROR)
+		return (EXIT_FAILURE);
 	return (EXIT_SUCCESS);
 }

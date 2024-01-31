@@ -12,29 +12,9 @@
 
 #include "philo.h"
 
-static int	is_philosopher_dead(t_philo *philo)
-{
-	struct timeval	current_time;
-	long			elapsed_time;
-
-	gettimeofday(&current_time, NULL);
-	pthread_mutex_lock(&philo->meal->mutex);
-	if (philo->meal->is_eating)
-	{
-		pthread_mutex_unlock(&philo->meal->mutex);
-		return (false);
-	}
-	elapsed_time = (current_time.tv_sec - philo->meal->last_meal.tv_sec) * US_PER_SEC;
-	elapsed_time += (current_time.tv_usec - philo->meal->last_meal.tv_usec);
-	pthread_mutex_unlock(&philo->meal->mutex);
-	if (elapsed_time >= (philo->sim_params.time_to_die * US_PER_MS))
-		return (true);
-	return (false);
-}
-
 static int	create_threads(t_sim **sim)
 {
-	int			i;
+	int	i;
 
 	(*sim)->threads = (pthread_t *)malloc(
 			(*sim)->params.number_of_philos * sizeof(pthread_t));
@@ -57,10 +37,13 @@ static void	join_threads(t_sim **sim)
 
 	i = 0;
 	while (i < (*sim)->params.number_of_philos)
-		pthread_join((*sim)->threads[i++], NULL);
+	{
+		pthread_join((*sim)->threads[i], NULL);
+		i++;
+	}
 }
 
-static int	should_sim_stop(t_sim **sim)
+static void	update_sim_status(t_sim **sim)
 {
 	int	philos_finished_their_meals;
 	int	i;
@@ -69,47 +52,42 @@ static int	should_sim_stop(t_sim **sim)
 	i = 0;
 	while (i < (*sim)->params.number_of_philos)
 	{
-		pthread_mutex_lock(&(*sim)->philos[i].meal->mutex);
-		if ((*sim)->philos[i].meal->number_of_meals_left != UNSPECIFIED)
+		if (has_philo_ate_all_the_meals(&(*sim)->philos[i]) == true)
+			philos_finished_their_meals++;
+		if (philos_finished_their_meals == (*sim)->params.number_of_philos)
 		{
-			if ((*sim)->philos[i].meal->number_of_meals_left == 0)
-				philos_finished_their_meals++;
-			pthread_mutex_unlock(&(*sim)->philos[i].meal->mutex);
-			if (philos_finished_their_meals == (*sim)->params.number_of_philos)
-			{
-				pthread_mutex_lock(&(*sim)->status.mutex);
-				(*sim)->status.should_stop = true;
-				pthread_mutex_unlock(&(*sim)->status.mutex);
-				return (true);
-			}
+			(*sim)->status.stop_event = NO_MEALS_LEFT;
+			return ;
 		}
-		if (is_philosopher_dead(&(*sim)->philos[i]))
-		{
-			pthread_mutex_lock(&(*sim)->status.mutex);
-			(*sim)->status.should_stop = true;
-			pthread_mutex_unlock(&(*sim)->status.mutex);
-			print_log(&(*sim)->log, (*sim)->philos[i].id, DIE);
-			return (true);
-		}
-		usleep(MAX_MS_TO_ANNOUNCE_DEATH * US_PER_MS / 3);
+//		if (is_philosopher_dead(&(*sim)->philos[i]))
+//		{
+//			(*sim)->status.stop_event = PHILO_DIED;
+//			(*sim)->status.philo_id = i;
+//			return ;
+//		}
 		i++;
 	}
-	return (false);
 }
 
 void	run_sim(t_sim **sim)
 {
 	int			ms_to_pause;
 
-	ms_to_pause = (*sim)->params.time_to_die / 20;
+	ms_to_pause = (*sim)->params.time_to_die / FREQ_RATIO_TO_UPDATE_STATUS;
 	if (ms_to_pause > MAX_MS_TO_ANNOUNCE_DEATH || ms_to_pause <= 0)
 		ms_to_pause = MAX_MS_TO_ANNOUNCE_DEATH;
 	if (create_threads(&(*sim)) == ERROR)
 		return ;
 	while (1)
 	{
-		if (should_sim_stop(&(*sim)) == true)
+		update_sim_status(&(*sim));
+		if ((*sim)->status.stop_event != NO_STOP_EVENT)
 		{
+			if ((*sim)->status.stop_event == PHILO_DIED)
+				print_log(&(*sim)->log, (*sim)->status.philo_id, DIE);
+			pthread_mutex_lock(&(*sim)->status.mutex);
+			(*sim)->status.should_stop = true;
+			pthread_mutex_unlock(&(*sim)->status.mutex);
 			join_threads(&(*sim));
 			return ;
 		}

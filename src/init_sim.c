@@ -32,7 +32,7 @@ static int	create_forks(t_sim **sim)
 	return (SUCCESS);
 }
 
-static int	create_meal(t_meal **meal)
+static int	create_meal(t_meal **meal, int number_of_meals)
 {
 	(*meal) = (t_meal *)malloc(sizeof(t_meal));
 	if (!(*meal))
@@ -41,6 +41,7 @@ static int	create_meal(t_meal **meal)
 	if (pthread_mutex_init(&(*meal)->mutex, NULL) != SUCCESS)
 		return (ERROR);
 	gettimeofday(&(*meal)->last_meal, NULL);
+	(*meal)->number_of_meals_left = number_of_meals;
 	return (SUCCESS);
 }
 
@@ -54,8 +55,8 @@ static int	create_philosophers(t_sim **sim)
 		return (ERROR);
 	memset((*sim)->philos, 0,
 		((*sim)->params.number_of_philos * sizeof(t_philo)));
-	i = -1;
-	while (++i < (*sim)->params.number_of_philos)
+	i = 0;
+	while (i < (*sim)->params.number_of_philos)
 	{
 		(*sim)->philos[i].id = i;
 		(*sim)->philos[i].sim_params = (*sim)->params;
@@ -64,10 +65,10 @@ static int	create_philosophers(t_sim **sim)
 		(*sim)->philos[i].left_fork = &((*sim)->forks[i]);
 		(*sim)->philos[i].right_fork = &((*sim)->forks[(
 					(i + 1) % (*sim)->params.number_of_philos)]);
-		if (create_meal(&(*sim)->philos[i].meal) != SUCCESS)
+		if (create_meal(&(*sim)->philos[i].meal,
+				(*sim)->params.number_of_meals) != SUCCESS)
 			return (ERROR);
-		(*sim)->philos[i].meal->number_of_meals_left
-			= (*sim)->params.number_of_meals;
+		i++;
 	}
 	return (SUCCESS);
 }
@@ -91,9 +92,9 @@ int	init_sim(t_sim **sim, char **argv)
 	memset(&(*sim)->status, 0, sizeof(t_sim_status));
 	if (pthread_mutex_init(&(*sim)->status.mutex, NULL) != SUCCESS)
 		return (ERROR);
-	(*sim)->status.should_stop = false;
 	if (pthread_mutex_init(&(*sim)->log.mutex, NULL) != SUCCESS)
 		return (ERROR);
+	gettimeofday(&(*sim)->log.start_time, NULL);
 	if (create_forks(sim) == ERROR)
 		return (ERROR);
 	if (create_philosophers(sim) == ERROR)
